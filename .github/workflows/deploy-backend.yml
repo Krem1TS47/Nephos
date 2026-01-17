@@ -1,0 +1,111 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Deployment stage'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: ${{ github.event.inputs.stage || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package.json
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless@4
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          npm ci
+          # Install dependencies for each function
+          cd functions/api/metrics && npm ci && cd ../../..
+          cd functions/api/alerts && npm ci && cd ../../..
+          cd functions/api/analytics && npm ci && cd ../../..
+          cd functions/sentinel && npm ci && cd ../..
+          cd functions/etl/dynamodb-to-snowflake && npm ci && cd ../../..
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Set deployment stage
+        id: set-stage
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "STAGE=${{ github.event.inputs.stage }}" >> $GITHUB_ENV
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "STAGE=prod" >> $GITHUB_ENV
+          else
+            echo "STAGE=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to AWS
+        working-directory: backend
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+        run: |
+          serverless deploy --stage ${{ env.STAGE }} --region ${{ secrets.AWS_REGION || 'us-east-1' }} --verbose
+
+      - name: Get deployment info
+        id: deployment-info
+        working-directory: backend
+        run: |
+          API_ENDPOINT=$(serverless info --stage ${{ env.STAGE }} --region ${{ secrets.AWS_REGION || 'us-east-1' }} | grep "endpoint:" | awk '{print $2}')
+          echo "API_ENDPOINT=$API_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "Deployed to: $API_ENDPOINT"
+
+      - name: Run smoke tests
+        if: success()
+        run: |
+          echo "Running smoke tests..."
+          # Add your smoke tests here
+          # curl ${{ steps.deployment-info.outputs.API_ENDPOINT }}/health
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Stage: ${{ env.STAGE }}"
+          echo "API Endpoint: ${{ steps.deployment-info.outputs.API_ENDPOINT }}"
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          exit 1

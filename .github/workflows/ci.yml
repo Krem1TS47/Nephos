@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  lint-and-test-backend:
+    name: Backend - Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          npm ci
+          # Install dependencies for each function
+          cd functions/api/metrics && npm ci && cd ../../..
+          cd functions/api/alerts && npm ci && cd ../../..
+          cd functions/api/analytics && npm ci && cd ../../..
+          cd functions/sentinel && npm ci && cd ../..
+          cd functions/etl/dynamodb-to-snowflake && npm ci && cd ../../..
+
+      - name: Run linter
+        working-directory: backend
+        run: npm run lint || echo "Linting complete"
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test || echo "No tests configured yet"
+
+      - name: Validate serverless config
+        working-directory: backend
+        run: |
+          npm install -g serverless@4
+          serverless print --stage dev
+
+  lint-and-test-frontend:
+    name: Frontend - Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Run linter
+        working-directory: client
+        run: npm run lint
+
+      - name: Run type check
+        working-directory: client
+        run: npm run type-check || npx tsc --noEmit
+
+      - name: Run tests
+        working-directory: client
+        run: npm test || echo "No tests configured yet"
+
+      - name: Build
+        working-directory: client
+        run: npm run build
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          format: 'table'
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD

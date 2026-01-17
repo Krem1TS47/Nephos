@@ -1,7 +1,7 @@
 {
-  "name": "metrics",
+  "name": "dynamodb-to-snowflake",
   "version": "1.0.0",
-  "description": "Metrics API for Nephos",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,8 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.400.0",
-    "@aws-sdk/lib-dynamodb": "^3.400.0",
-    "uuid": "^9.0.0"
+    "aws-sdk": "^2.1693.0",
+    "snowflake-sdk": "^2.3.3"
   }
 }

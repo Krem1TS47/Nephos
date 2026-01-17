@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree -L 3 \"c:/Users/benbe/Projects/Hackathons/Nephos/backend/functions/api\")",
+      "Bash(tree \"c:\\Users\\benbe\\Projects\\Hackathons\\Nephos\\client\" -L 3 -I \"node_modules|.next\")",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add button card badge alert avatar dropdown-menu select table tabs dialog input label textarea separator scroll-area)",
+      "Bash(npm install recharts lucide-react class-variance-authority clsx tailwind-merge)",
+      "Bash(npx shadcn@latest add skeleton)",
+      "Bash(cat package.json)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

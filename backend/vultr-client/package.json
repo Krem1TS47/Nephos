@@ -1,0 +1,24 @@
+{
+  "name": "nephos-vultr-agent",
+  "version": "1.0.0",
+  "description": "Monitoring agent for Vultr servers that sends metrics to Nephos",
+  "main": "nephos-agent.js",
+  "bin": {
+    "nephos-agent": "./nephos-agent.js"
+  },
+  "scripts": {
+    "start": "node nephos-agent.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "monitoring",
+    "vultr",
+    "metrics",
+    "nephos"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

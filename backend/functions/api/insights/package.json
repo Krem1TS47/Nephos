@@ -1,7 +1,7 @@
 {
-  "name": "metrics",
+  "name": "insights",
   "version": "1.0.0",
-  "description": "Metrics API for Nephos",
+  "description": "AI Insights API for Nephos",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,8 +11,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.400.0",
-    "@aws-sdk/lib-dynamodb": "^3.400.0",
-    "uuid": "^9.0.0"
+    "snowflake-sdk": "^1.9.0"
   }
 }

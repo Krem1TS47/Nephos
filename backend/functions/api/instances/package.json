@@ -1,7 +1,7 @@
 {
-  "name": "metrics",
+  "name": "instances",
   "version": "1.0.0",
-  "description": "Metrics API for Nephos",
+  "description": "Instances API for Nephos",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
