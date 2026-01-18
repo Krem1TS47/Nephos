@@ -1,0 +1,34 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "VultrApiKey",
+    "ParameterValue": "*KDMQA"
+  },
+  {
+    "ParameterKey": "SnowflakeAccount",
+    "ParameterValue": "BCGIVNI-QN18742"
+  },
+  {
+    "ParameterKey": "SnowflakeUser",
+    "ParameterValue": "BENCHING4755"
+  },
+  {
+    "ParameterKey": "SnowflakePassword",
+    "ParameterValue": "DynamiteLarry47!"
+  },
+  {
+    "ParameterKey": "SnowflakeWarehouse",
+    "ParameterValue": "SNOWFLAKE_LEARNING_WH"
+  },
+  {
+    "ParameterKey": "SnowflakeDatabase",
+    "ParameterValue": "NEPHOS"
+  },
+  {
+    "ParameterKey": "SnowflakeSchema",
+    "ParameterValue": "PUBLIC"
+  }
+]

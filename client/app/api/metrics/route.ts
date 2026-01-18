@@ -5,16 +5,17 @@ import type { Metric, MetricsListResponse } from '@/app/types';
 // Generate mock metrics data
 function generateMockMetrics(): Metric[] {
   const metrics: Metric[] = [];
-  const instances = ['inst-001', 'inst-002', 'inst-003', 'inst-004', 'inst-005'];
+  const instances = ['17b0f286-a9e8-4a4d-a1db-54b74cb97cc3', 'inst-002', 'inst-003', 'inst-004', 'inst-005'];
   const metricNames = [
     'cpu_usage',
-    'memory_usage',
-    'disk_usage',
-    'network_in',
-    'network_out',
-    'response_time',
-    'error_rate',
-    'request_count',
+    'memory_usage_percent',
+    'disk_usage_percent',
+    'network_rx_mb',
+    'network_tx_mb',
+    'response_time_ms',
+    'load_average_1min',
+    'load_average_5min',
+    'load_average_15min',
   ];
 
   // Generate metrics for the last 2 hours (24 data points, 5-minute intervals)
@@ -29,36 +30,40 @@ function generateMockMetrics(): Metric[] {
         // Generate realistic values based on metric type
         switch (metricName) {
           case 'cpu_usage':
+            value = 20 + Math.random() * 50;
+            unit = 'percent';
+            break;
+          case 'memory_usage_percent':
+            value = 40 + Math.random() * 40;
+            unit = 'percent';
+            break;
+          case 'disk_usage_percent':
+            value = 35 + Math.random() * 20;
+            unit = 'percent';
+            break;
+          case 'network_rx_mb':
             value = Math.random() * 100;
-            unit = 'percent';
+            unit = 'MB';
             break;
-          case 'memory_usage':
-            value = Math.random() * 100;
-            unit = 'percent';
+          case 'network_tx_mb':
+            value = Math.random() * 50;
+            unit = 'MB';
             break;
-          case 'disk_usage':
-            value = 50 + Math.random() * 30;
-            unit = 'percent';
-            break;
-          case 'network_in':
-            value = Math.random() * 1000;
-            unit = 'mbps';
-            break;
-          case 'network_out':
-            value = Math.random() * 500;
-            unit = 'mbps';
-            break;
-          case 'response_time':
-            value = 100 + Math.random() * 900;
+          case 'response_time_ms':
+            value = 100 + Math.random() * 400;
             unit = 'ms';
             break;
-          case 'error_rate':
-            value = Math.random() * 5;
-            unit = 'percent';
+          case 'load_average_1min':
+            value = Math.random() * 2;
+            unit = 'count';
             break;
-          case 'request_count':
-            value = Math.floor(Math.random() * 10000);
-            unit = 'requests';
+          case 'load_average_5min':
+            value = Math.random() * 1.8;
+            unit = 'count';
+            break;
+          case 'load_average_15min':
+            value = Math.random() * 1.5;
+            unit = 'count';
             break;
           default:
             value = Math.random() * 100;
@@ -73,8 +78,8 @@ function generateMockMetrics(): Metric[] {
           unit,
           timestamp: timestamp.toISOString(),
           metadata: {
-            region: instanceId.includes('001') || instanceId.includes('002') ? 'ewr' : 'us-east-1',
-            provider: instanceId.includes('003') || instanceId.includes('005') ? 'aws' : 'vultr',
+            region: instanceId === '17b0f286-a9e8-4a4d-a1db-54b74cb97cc3' ? 'lax' : 'ewr',
+            provider: instanceId === '17b0f286-a9e8-4a4d-a1db-54b74cb97cc3' ? 'vultr' : 'aws',
           },
         });
       });

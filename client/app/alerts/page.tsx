@@ -13,13 +13,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, CheckCircle2, Trash2, Check } from 'lucide-react';
-import { useState } from 'react';
-import type { AlertStatus } from '@/app/types';
+import { AlertTriangle, CheckCircle2, Trash2, Check, Server, MapPin, HardDrive, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import type { AlertStatus, Instance, Alert as AlertType } from '@/app/types';
 
 export default function AlertsPage() {
   const [filterStatus, setFilterStatus] = useState<AlertStatus | 'all'>('all');
+  const [selectedAlert, setSelectedAlert] = useState<AlertType | null>(null);
+  const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
+  const [loadingInstance, setLoadingInstance] = useState(false);
 
   const {
     alerts,
@@ -34,6 +44,23 @@ export default function AlertsPage() {
 
   const { acknowledgeAlert, resolveAlert, loading: updating } = useUpdateAlert();
   const { deleteAlert, loading: deleting } = useDeleteAlert();
+
+  // Fetch instance details when an alert is clicked
+  useEffect(() => {
+    if (selectedAlert) {
+      setLoadingInstance(true);
+      fetch(`/api/instances/${selectedAlert.instanceId}`)
+        .then(res => res.json())
+        .then(data => {
+          setSelectedInstance(data);
+          setLoadingInstance(false);
+        })
+        .catch(err => {
+          console.error('Failed to fetch instance:', err);
+          setLoadingInstance(false);
+        });
+    }
+  }, [selectedAlert]);
 
   const handleAcknowledge = async (id: string) => {
     await acknowledgeAlert(id);
@@ -69,7 +96,8 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="container py-8 space-y-8">
+    <div className="min-h-[calc(100vh-4rem)] bg-background">
+      <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -163,7 +191,8 @@ export default function AlertsPage() {
               {alerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className="flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                  className="flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedAlert(alert)}
                 >
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
@@ -248,6 +277,193 @@ export default function AlertsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Alert Details Dialog */}
+      <Dialog open={!!selectedAlert} onOpenChange={(open) => !open && setSelectedAlert(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Server className="h-5 w-5" />
+              Alert Details
+            </DialogTitle>
+            <DialogDescription>
+              Detailed information about the alert and affected server
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedAlert && (
+            <div className="space-y-6">
+              {/* Alert Information */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">Alert Information</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Type</p>
+                    <p className="font-medium">{selectedAlert.alertType}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Severity</p>
+                    <Badge
+                      variant={
+                        selectedAlert.severity === 'critical'
+                          ? 'destructive'
+                          : selectedAlert.severity === 'high'
+                          ? 'default'
+                          : selectedAlert.severity === 'medium'
+                          ? 'secondary'
+                          : 'outline'
+                      }
+                    >
+                      {selectedAlert.severity}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Status</p>
+                    <Badge variant="outline">{selectedAlert.status}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Created</p>
+                    <p className="font-mono text-xs">{new Date(selectedAlert.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm mb-1">Message</p>
+                  <p className="text-sm">{selectedAlert.message}</p>
+                </div>
+              </div>
+
+              {/* Server Information */}
+              <div className="space-y-3 pt-4 border-t">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  Affected Server
+                </h3>
+
+                {loadingInstance ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                ) : selectedInstance ? (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground">Server Name</p>
+                      <p className="font-semibold text-lg">{selectedInstance.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        IP Address
+                      </p>
+                      <p className="font-mono">{selectedInstance.metadata?.ipAddress || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Region</p>
+                      <p className="font-medium uppercase">{selectedInstance.region}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <HardDrive className="h-3 w-3" />
+                        Operating System
+                      </p>
+                      <p className="font-medium">{selectedInstance.metadata?.os || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Provider</p>
+                      <p className="font-medium capitalize">{selectedInstance.provider}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Status</p>
+                      <Badge
+                        variant={
+                          selectedInstance.status === 'healthy'
+                            ? 'default'
+                            : selectedInstance.status === 'degraded'
+                            ? 'secondary'
+                            : 'destructive'
+                        }
+                      >
+                        {selectedInstance.status}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Last Health Check
+                      </p>
+                      <p className="font-mono text-xs">{new Date(selectedInstance.lastHealthCheck).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Failed to load server information</p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4 border-t">
+                {selectedAlert.status === 'active' && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAcknowledge(selectedAlert.id);
+                        setSelectedAlert(null);
+                      }}
+                      disabled={updating || deleting}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Acknowledge
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResolve(selectedAlert.id);
+                        setSelectedAlert(null);
+                      }}
+                      disabled={updating || deleting}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Resolve
+                    </Button>
+                  </>
+                )}
+                {selectedAlert.status === 'acknowledged' && (
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleResolve(selectedAlert.id);
+                      setSelectedAlert(null);
+                    }}
+                    disabled={updating || deleting}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Resolve
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(selectedAlert.id);
+                    setSelectedAlert(null);
+                  }}
+                  disabled={updating || deleting}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      </div>
     </div>
   );
 }

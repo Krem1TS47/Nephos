@@ -16,11 +16,11 @@ export async function GET() {
     instances: [
       {
         id: '17b0f286-a9e8-4a4d-a1db-54b74cb97cc3',
-        name: 'Vultr Production Server',
+        name: 'Vultr Los Angeles Server',
         type: 'vultr-compute',
         status: 'healthy',
-        region: 'ewr',
-        endpoint: 'https://api.example.com',
+        region: 'lax',
+        endpoint: 'http://45.63.55.207',
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
         updatedAt: new Date().toISOString(),
         lastHealthCheck: new Date().toISOString(),
