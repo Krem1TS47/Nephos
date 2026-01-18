@@ -395,6 +395,168 @@ Resources:
         Application: Nephos
 
   # ========================================
+  # WebSocket API for Real-time Updates
+  # ========================================
+
+  WebSocketConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub NephosWebSocketConnections-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: Nephos
+
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub nephos-websocket-${Environment}
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.action
+
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-ws-connect-${Environment}
+      CodeUri: functions/websocket/connect/
+      Handler: index.handler
+      Description: WebSocket connection handler
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-ws-disconnect-${Environment}
+      CodeUri: functions/websocket/disconnect/
+      Handler: index.handler
+      Description: WebSocket disconnect handler
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  WebSocketBroadcastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-ws-broadcast-${Environment}
+      CodeUri: functions/websocket/broadcast/
+      Handler: index.handler
+      Description: Broadcasts real-time updates to all connected clients
+      Timeout: 60
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          WEBSOCKET_ENDPOINT: !Sub https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${WebSocketStage}
+      Events:
+        MetricsStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt MetricsTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 1
+        AlertsStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt AlertsTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 1
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref MetricsTable
+            StreamName: !Select [3, !Split ["/", !GetAtt MetricsTable.StreamArn]]
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref AlertsTable
+            StreamName: !Select [3, !Split ["/", !GetAtt AlertsTable.StreamArn]]
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  WebSocketConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketConnectFunction.Arn}/invocations
+
+  WebSocketDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketDisconnectFunction.Arn}/invocations
+
+  WebSocketConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      Target: !Sub integrations/${WebSocketConnectIntegration}
+
+  WebSocketDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      Target: !Sub integrations/${WebSocketDisconnectIntegration}
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref Environment
+      Description: !Sub ${Environment} stage for WebSocket API
+      AutoDeploy: true
+
+  WebSocketConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WebSocketConnectFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+
+  WebSocketDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WebSocketDisconnectFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*
+
+  # ========================================
   # CloudWatch Log Groups
   # ========================================
 
@@ -435,6 +597,12 @@ Outputs:
     Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/analytics
     Export:
       Name: !Sub ${Environment}-AnalyticsApiEndpoint
+
+  WebSocketEndpoint:
+    Description: WebSocket API Endpoint for Real-time Updates
+    Value: !Sub wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${WebSocketStage}
+    Export:
+      Name: !Sub ${Environment}-WebSocketEndpoint
 
   # DynamoDB Tables
   MetricsTableName:
