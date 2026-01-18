@@ -191,8 +191,6 @@ Nephos/
 - ✅ Environment configuration
 
 ### In Progress
-- 🚧 Lambda function implementations
-- 🚧 Frontend dashboard UI
 - 🚧 Authentication and authorization
 - 🚧 Real-time WebSocket updates
 
