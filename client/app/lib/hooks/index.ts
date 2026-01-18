@@ -32,3 +32,11 @@ export {
   useMetricAnalytics,
   useDateRangeAnalytics,
 } from './useAnalytics';
+
+export {
+  useInsights,
+  useInsightsSummary,
+  usePatternInsights,
+  useAnomalyInsights,
+  usePredictionInsights,
+} from './useInsights';

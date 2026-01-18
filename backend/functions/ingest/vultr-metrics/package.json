@@ -1,0 +1,16 @@
+{
+  "name": "vultr-metrics-ingestion",
+  "version": "1.0.0",
+  "description": "Lambda function to ingest Vultr metrics into DynamoDB",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "uuid": "^9.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
