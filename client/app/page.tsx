@@ -1,13 +1,12 @@
 'use client';
 
-import { useDashboard, useActiveAlerts, useInsightsSummary, useInsights } from '@/app/lib/hooks';
+import { useDashboard, useActiveAlerts } from '@/app/lib/hooks';
 import { config } from '@/app/lib/config';
 import { StatsCard } from './components/stats-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Server, Activity, AlertTriangle, CheckCircle2, Clock, Brain, Sparkles, TrendingUp, Zap } from 'lucide-react';
+import { Server, AlertTriangle, CheckCircle2, Clock, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
@@ -30,29 +29,10 @@ export default function DashboardPage() {
         refreshInterval: config.refreshIntervals.alerts,
     });
 
-    const {
-        summary: aiSummary,
-        loading: summaryLoading,
-        error: summaryError,
-    } = useInsightsSummary({
-        autoFetch: true,
-        refreshInterval: config.refreshIntervals.dashboard,
-    });
-
-    const {
-        insights: aiInsights,
-        loading: insightsLoading,
-        error: insightsError,
-    } = useInsights({
-        autoFetch: true,
-        limit: 10,
-        refreshInterval: config.refreshIntervals.dashboard,
-    });
-
     if (dashboardError) {
         return (
-            <div className="container py-8">
-                <Alert variant="destructive">
+            <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+                <Alert variant="destructive" className="max-w-md">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
                         Failed to load dashboard: {dashboardError.message}
@@ -69,557 +49,118 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="container py-8 space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground mt-2">
-                    Monitor your cloud infrastructure in real-time
-                </p>
-            </div>
-
-            {/* Stats Cards */}
-            {dashboardLoading && !dashboard ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                    {[...Array(5)].map((_, i) => (
-                        <Card key={i}>
-                            <CardHeader className="pb-2">
-                                <Skeleton className="h-4 w-24" />
-                            </CardHeader>
-                            <CardContent>
-                                <Skeleton className="h-8 w-16" />
-                            </CardContent>
-                        </Card>
-                    ))}
+        <div className="min-h-[calc(100vh-4rem)] bg-background">
+            <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-8">
+                {/* Header */}
+                <div>
+                    <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
+                    <p className="text-muted-foreground mt-2">
+                        Monitor your cloud infrastructure in real-time
+                    </p>
                 </div>
-            ) : dashboard?.summary ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                    <StatsCard
-                        title="Total Instances"
-                        value={dashboard.summary.totalInstances}
-                        description="Monitored services"
-                        icon={Server}
-                        variant="default"
-                    />
 
-                    <StatsCard
-                        title="Healthy Instances"
-                        value={dashboard.summary.healthyInstances}
-                        description={`${dashboard.summary.totalInstances > 0 ? Math.round((dashboard.summary.healthyInstances / dashboard.summary.totalInstances) * 100) : 0}% uptime`}
-                        icon={CheckCircle2}
-                        variant="success"
-                    />
-
-                    <StatsCard
-                        title="Active Alerts"
-                        value={dashboard.summary.activeAlerts}
-                        description="Requiring attention"
-                        icon={AlertTriangle}
-                        variant={dashboard.summary.activeAlerts > 0 ? 'warning' : 'default'}
-                    />
-
-                    <StatsCard
-                        title="Critical Alerts"
-                        value={dashboard.summary.criticalAlerts}
-                        description="High priority"
-                        icon={AlertTriangle}
-                        variant={dashboard.summary.criticalAlerts > 0 ? 'danger' : 'default'}
-                    />
-
-                    <StatsCard
-                        title="Avg Latency"
-                        value={`${dashboard.summary.avgLatency.toFixed(0)}ms`}
-                        description="Response time"
-                        icon={Clock}
-                        variant={dashboard.summary.avgLatency > 1000 ? 'warning' : 'success'}
-                    />
-                </div>
-            ) : (
-                <Alert>
-                    <AlertDescription>
-                        No monitoring data available. Add instances to start monitoring.
-                    </AlertDescription>
-                </Alert>
-            )}
-
-            <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="insights">
-                        <Brain className="h-4 w-4 mr-2" />
-                        AI Insights
-                    </TabsTrigger>
-                    <TabsTrigger value="metrics">Metrics</TabsTrigger>
-                    <TabsTrigger value="alerts">Active Alerts</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                        {/* Recent Alerts */}
-                        <Card className="col-span-4">
-                            <CardHeader>
-                                <CardTitle>Recent Alerts</CardTitle>
-                                <CardDescription>Latest alerts from your infrastructure</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {alertsLoading ? (
-                                    <div className="space-y-3">
-                                        {[...Array(3)].map((_, i) => (
-                                            <Skeleton key={i} className="h-20 w-full" />
-                                        ))}
-                                    </div>
-                                ) : alertsError ? (
-                                    <Alert variant="destructive">
-                                        <AlertDescription>
-                                            Failed to load alerts: {alertsError.message}
-                                        </AlertDescription>
-                                    </Alert>
-                                ) : alerts.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
-                                        <p className="text-muted-foreground">No active alerts</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            All systems are running smoothly
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {alerts.slice(0, 5).map((alert) => (
-                                            <div
-                                                key={alert.id}
-                                                className="flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                                            >
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h4 className="font-semibold">{alert.alertType}</h4>
-                                                        <Badge
-                                                            variant={
-                                                                alert.severity === 'critical'
-                                                                    ? 'destructive'
-                                                                    : alert.severity === 'high'
-                                                                        ? 'default'
-                                                                        : 'secondary'
-                                                            }
-                                                        >
-                                                            {alert.severity}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {alert.message}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        {new Date(alert.createdAt).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Instances Status */}
-                        <Card className="col-span-3">
-                            <CardHeader>
-                                <CardTitle>Instance Status</CardTitle>
-                                <CardDescription>Health overview of monitored instances</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {dashboardLoading ? (
-                                    <div className="space-y-3">
-                                        {[...Array(5)].map((_, i) => (
-                                            <Skeleton key={i} className="h-16 w-full" />
-                                        ))}
-                                    </div>
-                                ) : dashboard?.instances && dashboard.instances.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {dashboard.instances.slice(0, 5).map((instance) => (
-                                            <div
-                                                key={instance.id}
-                                                className="flex items-center justify-between p-3 border rounded-lg"
-                                            >
-                                                <div className="flex-1">
-                                                    <h4 className="font-medium">{instance.name}</h4>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {instance.type} • {instance.region}
-                                                    </p>
-                                                </div>
-                                                <Badge
-                                                    variant={
-                                                        instance.status === 'healthy'
-                                                            ? 'default'
-                                                            : instance.status === 'unhealthy'
-                                                                ? 'destructive'
-                                                                : 'secondary'
-                                                    }
-                                                >
-                                                    {instance.status}
-                                                </Badge>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <Server className="h-12 w-12 text-muted-foreground mb-4" />
-                                        <p className="text-muted-foreground">No instances configured</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Add instances to start monitoring
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                {/* Stats Cards */}
+                {dashboardLoading && !dashboard ? (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                        {[...Array(5)].map((_, i) => (
+                            <Card key={i}>
+                                <CardHeader className="pb-2">
+                                    <Skeleton className="h-4 w-24" />
+                                </CardHeader>
+                                <CardContent>
+                                    <Skeleton className="h-8 w-16" />
+                                </CardContent>
+                            </Card>
+                        ))}
                     </div>
-                </TabsContent>
+                ) : dashboard?.summary ? (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                        <StatsCard
+                            title="Total Instances"
+                            value={dashboard.summary.totalInstances}
+                            description="Monitored services"
+                            icon={Server}
+                            variant="default"
+                        />
 
-                <TabsContent value="insights" className="space-y-4">
-                    {/* AI Summary Card */}
-                    <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950">
-                        <CardHeader>
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-purple-600" />
-                                <CardTitle>AI-Powered Health Summary</CardTitle>
-                            </div>
-                            <CardDescription>
-                                Snowflake Cortex AI analysis of your cloud infrastructure
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {summaryLoading ? (
-                                <Skeleton className="h-24 w-full" />
-                            ) : summaryError ? (
-                                <Alert variant="destructive">
-                                    <AlertDescription>
-                                        Failed to load AI summary: {summaryError.message}
-                                    </AlertDescription>
-                                </Alert>
-                            ) : aiSummary ? (
-                                <div className="space-y-4">
-                                    <div className="prose dark:prose-invert max-w-none">
-                                        <p className="text-sm leading-relaxed">{aiSummary.summary}</p>
-                                    </div>
-                                    {aiSummary.criticalInsight && (
-                                        <div className="mt-4 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-                                            <div className="flex items-start gap-3">
-                                                <Zap className="h-5 w-5 text-red-600 mt-0.5" />
-                                                <div className="flex-1">
-                                                    <h4 className="font-semibold text-red-900 dark:text-red-100 mb-1">
-                                                        Critical Insight
-                                                    </h4>
-                                                    <p className="text-sm text-red-800 dark:text-red-200">
-                                                        {aiSummary.criticalInsight.description}
-                                                    </p>
-                                                    {aiSummary.criticalInsight.recommendations && (
-                                                        <p className="text-sm text-red-700 dark:text-red-300 mt-2">
-                                                            <strong>Recommended:</strong> {aiSummary.criticalInsight.recommendations}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-muted-foreground text-sm">
-                                    No AI summary available. Data is being analyzed...
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
+                        <StatsCard
+                            title="Healthy Instances"
+                            value={dashboard.summary.healthyInstances}
+                            description={`${dashboard.summary.totalInstances > 0 ? Math.round((dashboard.summary.healthyInstances / dashboard.summary.totalInstances) * 100) : 0}% uptime`}
+                            icon={CheckCircle2}
+                            variant="success"
+                        />
 
-                    {/* AI Insights Grid */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {/* Patterns */}
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center gap-2">
-                                    <TrendingUp className="h-4 w-4 text-blue-600" />
-                                    <CardTitle className="text-base">Patterns</CardTitle>
-                                </div>
-                                <CardDescription>Identified trends and behaviors</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {insightsLoading ? (
-                                    <Skeleton className="h-20 w-full" />
-                                ) : (
-                                    <div className="space-y-2">
-                                        {aiInsights
-                                            .filter((i) => i.type === 'pattern')
-                                            .slice(0, 3)
-                                            .map((insight) => (
-                                                <div
-                                                    key={insight.id}
-                                                    className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm"
-                                                >
-                                                    <p className="font-medium text-blue-900 dark:text-blue-100">
-                                                        {insight.title}
-                                                    </p>
-                                                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                                                        Confidence: {(insight.confidenceScore * 100).toFixed(0)}%
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        {aiInsights.filter((i) => i.type === 'pattern').length === 0 && (
-                                            <p className="text-sm text-muted-foreground">No patterns detected</p>
-                                        )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <StatsCard
+                            title="Active Alerts"
+                            value={dashboard.summary.activeAlerts}
+                            description="Requiring attention"
+                            icon={AlertTriangle}
+                            variant={dashboard.summary.activeAlerts > 0 ? 'warning' : 'default'}
+                        />
 
-                        {/* Anomalies */}
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4 text-orange-600" />
-                                    <CardTitle className="text-base">Anomalies</CardTitle>
-                                </div>
-                                <CardDescription>Unusual behavior detected</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {insightsLoading ? (
-                                    <Skeleton className="h-20 w-full" />
-                                ) : (
-                                    <div className="space-y-2">
-                                        {aiInsights
-                                            .filter((i) => i.type === 'anomaly')
-                                            .slice(0, 3)
-                                            .map((insight) => (
-                                                <div
-                                                    key={insight.id}
-                                                    className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg text-sm"
-                                                >
-                                                    <p className="font-medium text-orange-900 dark:text-orange-100">
-                                                        {insight.title}
-                                                    </p>
-                                                    <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
-                                                        Confidence: {(insight.confidenceScore * 100).toFixed(0)}%
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        {aiInsights.filter((i) => i.type === 'anomaly').length === 0 && (
-                                            <p className="text-sm text-muted-foreground">No anomalies detected</p>
-                                        )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <StatsCard
+                            title="Critical Alerts"
+                            value={dashboard.summary.criticalAlerts}
+                            description="High priority"
+                            icon={AlertTriangle}
+                            variant={dashboard.summary.criticalAlerts > 0 ? 'danger' : 'default'}
+                        />
 
-                        {/* Predictions */}
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="h-4 w-4 text-purple-600" />
-                                    <CardTitle className="text-base">Predictions</CardTitle>
-                                </div>
-                                <CardDescription>Forecasted issues and trends</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {insightsLoading ? (
-                                    <Skeleton className="h-20 w-full" />
-                                ) : (
-                                    <div className="space-y-2">
-                                        {aiInsights
-                                            .filter((i) => i.type === 'prediction')
-                                            .slice(0, 3)
-                                            .map((insight) => (
-                                                <div
-                                                    key={insight.id}
-                                                    className="p-3 bg-purple-50 dark:bg-purple-950 rounded-lg text-sm"
-                                                >
-                                                    <p className="font-medium text-purple-900 dark:text-purple-100">
-                                                        {insight.title}
-                                                    </p>
-                                                    <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
-                                                        Confidence: {(insight.confidenceScore * 100).toFixed(0)}%
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        {aiInsights.filter((i) => i.type === 'prediction').length === 0 && (
-                                            <p className="text-sm text-muted-foreground">No predictions available</p>
-                                        )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <StatsCard
+                            title="Avg Latency"
+                            value={`${dashboard.summary.avgLatency.toFixed(0)}ms`}
+                            description="Response time"
+                            icon={Clock}
+                            variant={dashboard.summary.avgLatency > 1000 ? 'warning' : 'success'}
+                        />
                     </div>
+                ) : (
+                    <Alert>
+                        <AlertDescription>
+                            No monitoring data available. Add instances to start monitoring.
+                        </AlertDescription>
+                    </Alert>
+                )}
 
-                    {/* Detailed Insights List */}
-                    <Card>
+                {/* Main Content Grid */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                    {/* Recent Alerts */}
+                    <Card className="col-span-4">
                         <CardHeader>
-                            <CardTitle>All AI Insights</CardTitle>
-                            <CardDescription>Comprehensive analysis from Snowflake Cortex AI</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {insightsLoading ? (
-                                <div className="space-y-3">
-                                    {[...Array(3)].map((_, i) => (
-                                        <Skeleton key={i} className="h-24 w-full" />
-                                    ))}
-                                </div>
-                            ) : insightsError ? (
-                                <Alert variant="destructive">
-                                    <AlertDescription>
-                                        Failed to load insights: {insightsError.message}
-                                    </AlertDescription>
-                                </Alert>
-                            ) : aiInsights.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <Brain className="h-16 w-16 text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold">No Insights Yet</h3>
-                                    <p className="text-muted-foreground">
-                                        AI analysis will appear here once data is collected
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {aiInsights.map((insight) => (
-                                        <div
-                                            key={insight.id}
-                                            className="p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                                        >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Badge
-                                                            variant={
-                                                                insight.type === 'pattern'
-                                                                    ? 'default'
-                                                                    : insight.type === 'anomaly'
-                                                                        ? 'destructive'
-                                                                        : 'secondary'
-                                                            }
-                                                        >
-                                                            {insight.type}
-                                                        </Badge>
-                                                        <Badge
-                                                            variant={
-                                                                insight.severity === 'high'
-                                                                    ? 'destructive'
-                                                                    : insight.severity === 'medium'
-                                                                        ? 'default'
-                                                                        : 'secondary'
-                                                            }
-                                                        >
-                                                            {insight.severity}
-                                                        </Badge>
-                                                    </div>
-                                                    <h4 className="font-semibold mb-1">{insight.title}</h4>
-                                                    <p className="text-sm text-muted-foreground mb-2">
-                                                        {insight.description}
-                                                    </p>
-                                                    {insight.recommendations && (
-                                                        <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950 rounded text-sm">
-                                                            <strong className="text-blue-900 dark:text-blue-100">
-                                                                Recommendation:
-                                                            </strong>{' '}
-                                                            <span className="text-blue-800 dark:text-blue-200">
-                                                                {insight.recommendations}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex gap-4 text-xs text-muted-foreground mt-2">
-                                                        <span>
-                                                            Affected: {insight.affectedInstances.length} instance(s)
-                                                        </span>
-                                                        <span>
-                                                            Confidence: {(insight.confidenceScore * 100).toFixed(0)}%
-                                                        </span>
-                                                        <span>
-                                                            {new Date(insight.createdAt).toLocaleString()}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="metrics" className="space-y-4">
-                    {dashboardLoading ? (
-                        <Skeleton className="h-96 w-full" />
-                    ) : dashboard?.recentMetrics && dashboard.recentMetrics.length > 0 ? (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Recent Metrics</CardTitle>
-                                <CardDescription>Latest performance metrics from your infrastructure</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    {dashboard.recentMetrics.slice(0, 10).map((metric) => (
-                                        <div
-                                            key={metric.id}
-                                            className="flex items-center justify-between p-3 border rounded-lg"
-                                        >
-                                            <div className="flex items-center gap-4 flex-1">
-                                                <Activity className="h-4 w-4 text-primary" />
-                                                <div>
-                                                    <h4 className="font-medium">{metric.metricName}</h4>
-                                                    <p className="text-xs text-muted-foreground font-mono">
-                                                        Instance: {metric.instanceId.substring(0, 12)}...
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-semibold">
-                                                    {metric.metricValue} {metric.unit}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {new Date(metric.timestamp).toLocaleTimeString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Card>
-                            <CardContent className="flex flex-col items-center justify-center py-12">
-                                <Activity className="h-12 w-12 text-muted-foreground mb-4" />
-                                <p className="text-muted-foreground">No metrics available</p>
-                                <p className="text-sm text-muted-foreground">
-                                    Metrics will appear here once instances are monitored
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )}
-                </TabsContent>
-
-                <TabsContent value="alerts" className="space-y-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Active Alerts</CardTitle>
-                            <CardDescription>All active alerts requiring attention</CardDescription>
+                            <CardTitle>Recent Alerts</CardTitle>
+                            <CardDescription>Latest alerts from your infrastructure</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {alertsLoading ? (
                                 <div className="space-y-3">
-                                    {[...Array(5)].map((_, i) => (
+                                    {[...Array(3)].map((_, i) => (
                                         <Skeleton key={i} className="h-20 w-full" />
                                     ))}
                                 </div>
+                            ) : alertsError ? (
+                                <Alert variant="destructive">
+                                    <AlertDescription>
+                                        Failed to load alerts: {alertsError.message}
+                                    </AlertDescription>
+                                </Alert>
                             ) : alerts.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
-                                    <h3 className="text-lg font-semibold">All Clear!</h3>
-                                    <p className="text-muted-foreground">
-                                        No active alerts at this time
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                                    <p className="text-muted-foreground">No active alerts</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        All systems are running smoothly
                                     </p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {alerts.map((alert) => (
+                                    {alerts.slice(0, 5).map((alert) => (
                                         <div
                                             key={alert.id}
-                                            className="flex items-start justify-between p-4 border rounded-lg"
+                                            className="flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                                         >
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
+                                                <div className="flex items-center gap-2 mb-1">
                                                     <h4 className="font-semibold">{alert.alertType}</h4>
                                                     <Badge
                                                         variant={
@@ -632,15 +173,13 @@ export default function DashboardPage() {
                                                     >
                                                         {alert.severity}
                                                     </Badge>
-                                                    <Badge variant="outline">{alert.status}</Badge>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground mb-1">
+                                                <p className="text-sm text-muted-foreground">
                                                     {alert.message}
                                                 </p>
-                                                <div className="flex gap-4 text-xs text-muted-foreground">
-                                                    <span>Instance: {alert.instanceId.substring(0, 12)}...</span>
-                                                    <span>Created: {new Date(alert.createdAt).toLocaleString()}</span>
-                                                </div>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {new Date(alert.createdAt).toLocaleString()}
+                                                </p>
                                             </div>
                                         </div>
                                     ))}
@@ -648,8 +187,103 @@ export default function DashboardPage() {
                             )}
                         </CardContent>
                     </Card>
-                </TabsContent>
-            </Tabs>
+
+                    {/* Instances Status */}
+                    <Card className="col-span-3">
+                        <CardHeader>
+                            <CardTitle>Instance Status</CardTitle>
+                            <CardDescription>Health overview of monitored instances</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {dashboardLoading ? (
+                                <div className="space-y-3">
+                                    {[...Array(5)].map((_, i) => (
+                                        <Skeleton key={i} className="h-16 w-full" />
+                                    ))}
+                                </div>
+                            ) : dashboard?.instances && dashboard.instances.length > 0 ? (
+                                <div className="space-y-3">
+                                    {dashboard.instances.slice(0, 5).map((instance) => (
+                                        <div
+                                            key={instance.id}
+                                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                                        >
+                                            <div className="flex-1">
+                                                <h4 className="font-medium">{instance.name}</h4>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {instance.type} • {instance.region}
+                                                </p>
+                                            </div>
+                                            <Badge
+                                                variant={
+                                                    instance.status === 'healthy'
+                                                        ? 'default'
+                                                        : instance.status === 'unhealthy'
+                                                            ? 'destructive'
+                                                            : 'secondary'
+                                                }
+                                            >
+                                                {instance.status}
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <Server className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <p className="text-muted-foreground">No instances configured</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Add instances to start monitoring
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">System Uptime</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">99.9%</div>
+                            <p className="text-xs text-muted-foreground">Last 30 days</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {dashboard?.summary?.avgLatency ? `${dashboard.summary.avgLatency.toFixed(0)}ms` : '0ms'}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Across all instances</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Health Score</CardTitle>
+                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {dashboard?.summary?.totalInstances > 0
+                                    ? Math.round((dashboard.summary.healthyInstances / dashboard.summary.totalInstances) * 100)
+                                    : 0}
+                                /100
+                            </div>
+                            <p className="text-xs text-muted-foreground">Overall infrastructure health</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }

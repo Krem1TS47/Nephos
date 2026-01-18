@@ -1,0 +1,32 @@
+[Unit]
+Description=Nephos Monitoring Agent
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/nephos-agent
+ExecStart=/usr/bin/node /opt/nephos-agent/nephos-agent.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nephos-agent
+
+# Environment variables (configure these)
+Environment="NEPHOS_ENDPOINT=https://your-api-id.execute-api.us-east-2.amazonaws.com/ingest/vultr"
+Environment="INSTANCE_ID=your-vultr-instance-id"
+Environment="INSTANCE_NAME=my-vultr-server"
+Environment="VULTR_REGION=ewr"
+Environment="INSTANCE_TYPE=vultr-compute"
+Environment="HEALTH_ENDPOINT=http://localhost:3000/health"
+Environment="COLLECTION_INTERVAL=30000"
+Environment="DEBUG=false"
+
+# Security hardening (optional)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

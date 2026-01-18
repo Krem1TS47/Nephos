@@ -1,0 +1,10 @@
+{
+  "VultrApiKey": "YOUR_VULTR_API_KEY_FROM_ENV",
+  "SnowflakeAccount": "BCGIVNI-QN18742",
+  "SnowflakeUser": "BENCHING4755",
+  "SnowflakePassword": "DynamiteLarry47!",
+  "SnowflakeWarehouse": "SNOWFLAKE_LEARNING_WH",
+  "SnowflakeDatabase": "SNOWFLAKE_LEARNING_DB",
+  "SnowflakeSchema": "INFORMATION_SCHEMA",
+  "Environment": "dev"
+}

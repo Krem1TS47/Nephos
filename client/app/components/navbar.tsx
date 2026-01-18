@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, AlertTriangle, Server, BarChart3, Cloud } from 'lucide-react';
+import { AlertTriangle, Server, BarChart3, Cloud, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: BarChart3 },
-  { name: 'Instances', href: '/instances', icon: Server },
+  { name: 'Servers', href: '/servers', icon: Server },
+  { name: 'AI Insights', href: '/insights', icon: Brain },
   { name: 'Alerts', href: '/alerts', icon: AlertTriangle },
-  { name: 'Metrics', href: '/metrics', icon: Activity },
 ];
 
 export function Navbar() {

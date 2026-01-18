@@ -14,7 +14,7 @@ const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-  'Access-Control-Allow-Methods': 'GET,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
 };
 
 /**
@@ -22,7 +22,9 @@ const headers = {
  *
  * Endpoints:
  * - GET /insights - Get all AI insights
+ * - POST /insights/generate - Generate new AI insights on-demand
  * - GET /insights/summary - Get AI summary report
+ * - POST /insights/summary/generate - Generate new AI summary on-demand
  * - GET /insights/patterns - Get pattern insights
  * - GET /insights/anomalies - Get anomaly insights
  * - GET /insights/predictions - Get predictive insights
@@ -43,10 +45,21 @@ exports.handler = async (event) => {
 
   try {
     const path = event.requestContext.http.path;
+    const method = event.requestContext.http.method;
+
+    // POST /insights/summary/generate - Generate new AI summary on-demand
+    if (path.includes('/summary/generate') && method === 'POST') {
+      return await generateSummaryOnDemand(connection);
+    }
 
     // GET /insights/summary
     if (path.includes('/summary')) {
       return await getSummary(connection);
+    }
+
+    // POST /insights/generate - Generate new insights on-demand
+    if (path.includes('/generate') && method === 'POST') {
+      return await generateInsightsOnDemand(connection);
     }
 
     // GET /insights/patterns
@@ -171,6 +184,145 @@ async function getInsightsByType(connection, type) {
       count: rows.length,
     }),
   };
+}
+
+/**
+ * Generate new AI insights on-demand
+ */
+async function generateInsightsOnDemand(connection) {
+  console.log('Generating new AI insights on-demand...');
+
+  try {
+    // Call the stored procedure to generate insights based on latest data
+    await executeSnowflakeQuery(
+      connection,
+      'CALL GENERATE_AI_INSIGHTS()'
+    );
+
+    // Fetch the newly generated insights
+    const sql = `
+      SELECT
+        ID,
+        INSIGHT_TYPE,
+        SEVERITY,
+        TITLE,
+        DESCRIPTION,
+        AFFECTED_INSTANCES,
+        METRICS_ANALYZED,
+        CONFIDENCE_SCORE,
+        RECOMMENDATIONS,
+        CREATED_AT,
+        EXPIRES_AT,
+        METADATA
+      FROM AI_INSIGHTS
+      WHERE CREATED_AT > DATEADD(minute, -1, CURRENT_TIMESTAMP())
+      ORDER BY CREATED_AT DESC
+    `;
+
+    const rows = await executeSnowflakeQuery(connection, sql);
+
+    console.log(`Generated ${rows.length} new insights`);
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        insights: rows.map(formatInsight),
+        count: rows.length,
+        generatedAt: new Date().toISOString(),
+      }),
+    };
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: 'Failed to generate insights',
+        message: error.message,
+      }),
+    };
+  }
+}
+
+/**
+ * Generate new AI summary on-demand
+ */
+async function generateSummaryOnDemand(connection) {
+  console.log('Generating new AI summary on-demand...');
+
+  try {
+    // First, generate fresh insights
+    await executeSnowflakeQuery(
+      connection,
+      'CALL GENERATE_AI_INSIGHTS()'
+    );
+
+    // Then generate the summary report
+    const summaryResult = await executeSnowflakeQuery(
+      connection,
+      'CALL GENERATE_AI_SUMMARY_REPORT()'
+    );
+
+    const summary = summaryResult[0]?.GENERATE_AI_SUMMARY_REPORT || 'No summary available';
+
+    // Get fresh stats
+    const statsResult = await executeSnowflakeQuery(connection, `
+      SELECT
+        INSIGHT_TYPE,
+        SEVERITY,
+        COUNT(*) AS COUNT
+      FROM AI_INSIGHTS
+      WHERE CREATED_AT > DATEADD(minute, -1, CURRENT_TIMESTAMP())
+      GROUP BY INSIGHT_TYPE, SEVERITY
+    `);
+
+    // Get most critical insight
+    const criticalResult = await executeSnowflakeQuery(connection, `
+      SELECT
+        ID,
+        INSIGHT_TYPE,
+        SEVERITY,
+        TITLE,
+        DESCRIPTION,
+        AFFECTED_INSTANCES,
+        CONFIDENCE_SCORE,
+        RECOMMENDATIONS,
+        CREATED_AT
+      FROM AI_INSIGHTS
+      WHERE CREATED_AT > DATEADD(minute, -1, CURRENT_TIMESTAMP())
+        AND SEVERITY = 'high'
+      ORDER BY CONFIDENCE_SCORE DESC, CREATED_AT DESC
+      LIMIT 1
+    `);
+
+    console.log('AI summary generated successfully');
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        summary,
+        stats: statsResult,
+        criticalInsight: criticalResult[0] ? formatInsight(criticalResult[0]) : null,
+        generatedAt: new Date().toISOString(),
+        metadata: {
+          aiModel: 'Snowflake Cortex - Mistral Large',
+          freshGeneration: true,
+        },
+      }),
+    };
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: 'Failed to generate AI summary',
+        message: error.message,
+      }),
+    };
+  }
 }
 
 /**

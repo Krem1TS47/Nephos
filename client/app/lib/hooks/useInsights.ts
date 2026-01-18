@@ -22,6 +22,7 @@ export function useInsights(options: UseInsightsOptions = {}) {
 
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchInsights = useCallback(async () => {
@@ -37,6 +38,20 @@ export function useInsights(options: UseInsightsOptions = {}) {
       setLoading(false);
     }
   }, [severity, type, limit]);
+
+  const generateInsights = useCallback(async () => {
+    setGenerating(true);
+    setError(null);
+
+    try {
+      const response = await insightsApi.generateInsights();
+      setInsights(response.insights);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to generate insights'));
+    } finally {
+      setGenerating(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (autoFetch) {
@@ -54,8 +69,10 @@ export function useInsights(options: UseInsightsOptions = {}) {
   return {
     insights,
     loading,
+    generating,
     error,
     refetch: fetchInsights,
+    generate: generateInsights,
   };
 }
 
@@ -64,6 +81,7 @@ export function useInsightsSummary(options: Omit<UseInsightsOptions, 'severity' 
 
   const [summary, setSummary] = useState<InsightsSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchSummary = useCallback(async () => {
@@ -77,6 +95,20 @@ export function useInsightsSummary(options: Omit<UseInsightsOptions, 'severity' 
       setError(err instanceof Error ? err : new Error('Failed to fetch summary'));
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const generateSummary = useCallback(async () => {
+    setGenerating(true);
+    setError(null);
+
+    try {
+      const response = await insightsApi.generateSummary();
+      setSummary(response);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to generate summary'));
+    } finally {
+      setGenerating(false);
     }
   }, []);
 
@@ -96,8 +128,10 @@ export function useInsightsSummary(options: Omit<UseInsightsOptions, 'severity' 
   return {
     summary,
     loading,
+    generating,
     error,
     refetch: fetchSummary,
+    generate: generateSummary,
   };
 }
 

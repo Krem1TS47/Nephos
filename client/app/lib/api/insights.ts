@@ -62,4 +62,18 @@ export const insightsApi = {
   async getPredictions(): Promise<InsightsListResponse> {
     return apiClient.get<InsightsListResponse>('/insights/predictions');
   },
+
+  /**
+   * Generate new AI insights on-demand
+   */
+  async generateInsights(): Promise<InsightsListResponse> {
+    return apiClient.post<InsightsListResponse>('/insights/generate', {});
+  },
+
+  /**
+   * Generate new AI summary on-demand
+   */
+  async generateSummary(): Promise<InsightsSummary> {
+    return apiClient.post<InsightsSummary>('/insights/summary/generate', {});
+  },
 };

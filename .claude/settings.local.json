@@ -11,7 +11,8 @@
       "Bash(mkdir -p \"c:/Users/benbe/Projects/Hackathons/Nephos/backend/snowflake\")",
       "Bash(npm install --production)",
       "Bash(node --version)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(cat \"c:/Users/benbe/Projects/Hackathons/Nephos/backend/.env\")"
     ],
     "deny": [],
     "ask": []
