@@ -1,0 +1,470 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Nephos Cloud Monitoring Infrastructure
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+  VultrApiKey:
+    Type: String
+    NoEcho: true
+    Description: Vultr API Key for instance monitoring
+
+  SnowflakeAccount:
+    Type: String
+    Description: Snowflake account identifier
+
+  SnowflakeUser:
+    Type: String
+    Description: Snowflake username
+
+  SnowflakePassword:
+    Type: String
+    NoEcho: true
+    Description: Snowflake password
+
+  SnowflakeWarehouse:
+    Type: String
+    Default: SNOWFLAKE_LEARNING_WH
+    Description: Snowflake warehouse name
+
+  SnowflakeDatabase:
+    Type: String
+    Default: NEPHOS
+    Description: Snowflake database name
+
+  SnowflakeSchema:
+    Type: String
+    Default: PUBLIC
+    Description: Snowflake schema name
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        DYNAMODB_TABLE_METRICS: !Ref MetricsTable
+        DYNAMODB_TABLE_ALERTS: !Ref AlertsTable
+        DYNAMODB_TABLE_INSTANCES: !Ref InstancesTable
+        REGION: !Ref AWS::Region
+
+Resources:
+  # ========================================
+  # DynamoDB Tables
+  # ========================================
+
+  MetricsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub CloudPulseMetrics-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: instanceId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: InstanceIdIndex
+          KeySchema:
+            - AttributeName: instanceId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: Nephos
+
+  AlertsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub CloudPulseAlerts-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: instanceId
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: InstanceIdIndex
+          KeySchema:
+            - AttributeName: instanceId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: Nephos
+
+  InstancesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub CloudPulseInstances-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: Nephos
+
+  # ========================================
+  # SNS Topics
+  # ========================================
+
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub nephos-alerts-${Environment}
+      DisplayName: Nephos Critical Alerts
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: Nephos
+
+  # ========================================
+  # Lambda Functions
+  # ========================================
+
+  # Sentinel Function - Health Monitoring
+  SentinelFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-sentinel-${Environment}
+      CodeUri: functions/sentinel/
+      Handler: index.handler
+      Description: Health monitoring and active checks for Vultr instances
+      Environment:
+        Variables:
+          VULTR_API_KEY: !Ref VultrApiKey
+          SNS_TOPIC_ARN: !Ref AlertsTopic
+          HEALTH_CHECK_TIMEOUT: 5000
+      Events:
+        ScheduledCheck:
+          Type: Schedule
+          Properties:
+            Schedule: rate(2 minutes)
+            Description: Run health checks every 2 minutes
+            Enabled: true
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetricsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AlertsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InstancesTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AlertsTopic.TopicName
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  # Vultr Metrics Ingestion Function
+  VultrIngestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-vultr-ingestion-${Environment}
+      CodeUri: functions/ingest/vultr-metrics/
+      Handler: index.handler
+      Description: Receives and ingests metrics from Vultr instances
+      Events:
+        HttpApi:
+          Type: HttpApi
+          Properties:
+            Path: /ingest
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetricsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AlertsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InstancesTable
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  # ETL Function - DynamoDB to Snowflake
+  ETLFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-etl-${Environment}
+      CodeUri: functions/etl/dynamodb-to-snowflake/
+      Handler: index.handler
+      Description: Syncs DynamoDB data to Snowflake for AI analysis
+      Timeout: 300
+      MemorySize: 1024
+      Environment:
+        Variables:
+          SNOWFLAKE_ACCOUNT: !Ref SnowflakeAccount
+          SNOWFLAKE_USERNAME: !Ref SnowflakeUser
+          SNOWFLAKE_PASSWORD: !Ref SnowflakePassword
+          SNOWFLAKE_WAREHOUSE: !Ref SnowflakeWarehouse
+          SNOWFLAKE_DATABASE: !Ref SnowflakeDatabase
+          SNOWFLAKE_SCHEMA: !Ref SnowflakeSchema
+      Events:
+        MetricsStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt MetricsTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 10
+        AlertsStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt AlertsTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 10
+        InstancesStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt InstancesTable.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 10
+        ScheduledSync:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Description: Hourly batch sync to Snowflake
+            Enabled: true
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MetricsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AlertsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref InstancesTable
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref MetricsTable
+            StreamName: !Select [3, !Split ["/", !GetAtt MetricsTable.StreamArn]]
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref AlertsTable
+            StreamName: !Select [3, !Split ["/", !GetAtt AlertsTable.StreamArn]]
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref InstancesTable
+            StreamName: !Select [3, !Split ["/", !GetAtt InstancesTable.StreamArn]]
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  # API Functions
+  InsightsApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-insights-api-${Environment}
+      CodeUri: functions/api/insights/
+      Handler: index.handler
+      Description: AI Insights API powered by Snowflake Cortex
+      Environment:
+        Variables:
+          SNOWFLAKE_ACCOUNT: !Ref SnowflakeAccount
+          SNOWFLAKE_USERNAME: !Ref SnowflakeUser
+          SNOWFLAKE_PASSWORD: !Ref SnowflakePassword
+          SNOWFLAKE_WAREHOUSE: !Ref SnowflakeWarehouse
+          SNOWFLAKE_DATABASE: !Ref SnowflakeDatabase
+          SNOWFLAKE_SCHEMA: !Ref SnowflakeSchema
+      Events:
+        GetInsights:
+          Type: HttpApi
+          Properties:
+            Path: /insights
+            Method: GET
+        GetSummary:
+          Type: HttpApi
+          Properties:
+            Path: /insights/summary
+            Method: GET
+        GetPatterns:
+          Type: HttpApi
+          Properties:
+            Path: /insights/patterns
+            Method: GET
+        GetAnomalies:
+          Type: HttpApi
+          Properties:
+            Path: /insights/anomalies
+            Method: GET
+        GetPredictions:
+          Type: HttpApi
+          Properties:
+            Path: /insights/predictions
+            Method: GET
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  AnalyticsApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-analytics-api-${Environment}
+      CodeUri: functions/api/analytics/
+      Handler: index.handler
+      Description: Analytics and dashboard API
+      Events:
+        GetDashboard:
+          Type: HttpApi
+          Properties:
+            Path: /analytics/dashboard
+            Method: GET
+        GetAnalytics:
+          Type: HttpApi
+          Properties:
+            Path: /analytics
+            Method: GET
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MetricsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AlertsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref InstancesTable
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  AlertsApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub nephos-alerts-api-${Environment}
+      CodeUri: functions/api/alerts/
+      Handler: index.handler
+      Description: Alerts management API
+      Events:
+        GetAlerts:
+          Type: HttpApi
+          Properties:
+            Path: /alerts
+            Method: GET
+        GetAlert:
+          Type: HttpApi
+          Properties:
+            Path: /alerts/{id}
+            Method: GET
+        UpdateAlert:
+          Type: HttpApi
+          Properties:
+            Path: /alerts/{id}
+            Method: PUT
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AlertsTable
+      Tags:
+        Environment: !Ref Environment
+        Application: Nephos
+
+  # ========================================
+  # CloudWatch Log Groups
+  # ========================================
+
+  SentinelLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SentinelFunction}
+      RetentionInDays: 7
+
+  VultrIngestionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${VultrIngestionFunction}
+      RetentionInDays: 7
+
+  ETLLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ETLFunction}
+      RetentionInDays: 14
+
+Outputs:
+  # API Endpoints
+  VultrIngestionEndpoint:
+    Description: Vultr Metrics Ingestion Endpoint
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/ingest
+    Export:
+      Name: !Sub ${Environment}-VultrIngestionEndpoint
+
+  InsightsApiEndpoint:
+    Description: AI Insights API Endpoint
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/insights
+    Export:
+      Name: !Sub ${Environment}-InsightsApiEndpoint
+
+  AnalyticsApiEndpoint:
+    Description: Analytics Dashboard API Endpoint
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/analytics
+    Export:
+      Name: !Sub ${Environment}-AnalyticsApiEndpoint
+
+  # DynamoDB Tables
+  MetricsTableName:
+    Description: Metrics DynamoDB Table Name
+    Value: !Ref MetricsTable
+    Export:
+      Name: !Sub ${Environment}-MetricsTableName
+
+  AlertsTableName:
+    Description: Alerts DynamoDB Table Name
+    Value: !Ref AlertsTable
+    Export:
+      Name: !Sub ${Environment}-AlertsTableName
+
+  InstancesTableName:
+    Description: Instances DynamoDB Table Name
+    Value: !Ref InstancesTable
+    Export:
+      Name: !Sub ${Environment}-InstancesTableName
+
+  # SNS Topic
+  AlertsTopicArn:
+    Description: SNS Topic ARN for Critical Alerts
+    Value: !Ref AlertsTopic
+    Export:
+      Name: !Sub ${Environment}-AlertsTopicArn
+
+  # Lambda Functions
+  SentinelFunctionArn:
+    Description: Sentinel Function ARN
+    Value: !GetAtt SentinelFunction.Arn
+    Export:
+      Name: !Sub ${Environment}-SentinelFunctionArn

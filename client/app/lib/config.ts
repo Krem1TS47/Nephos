@@ -1,8 +1,9 @@
 // Application Configuration
 
 export const config = {
+  apiBaseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   },
 
   environment: process.env.NEXT_PUBLIC_ENVIRONMENT || 'development',

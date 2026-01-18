@@ -4,9 +4,9 @@ const { DynamoDBDocumentClient, ScanCommand, QueryCommand } = require('@aws-sdk/
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 
-const METRICS_TABLE = process.env.DYNAMODB_TABLE_METRICS;
-const ALERTS_TABLE = process.env.DYNAMODB_TABLE_ALERTS;
-const INSTANCES_TABLE = process.env.DYNAMODB_TABLE_INSTANCES;
+const METRICS_TABLE = process.env.DYNAMODB_TABLE_METRICS || process.env.DYNAMODB_TABLE_NAME || 'CloudPulseMetrics';
+const ALERTS_TABLE = process.env.DYNAMODB_TABLE_ALERTS || 'CloudPulseAlerts';
+const INSTANCES_TABLE = process.env.DYNAMODB_TABLE_INSTANCES || 'CloudPulseInstances';
 
 const headers = {
   'Content-Type': 'application/json',
