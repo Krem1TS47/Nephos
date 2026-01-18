@@ -9,7 +9,9 @@
       "Bash(npx shadcn@latest add skeleton)",
       "Bash(cat package.json)",
       "Bash(mkdir -p \"c:/Users/benbe/Projects/Hackathons/Nephos/backend/snowflake\")",
-      "Bash(npm install --production)"
+      "Bash(npm install --production)",
+      "Bash(node --version)",
+      "Bash(npm --version)"
     ],
     "deny": [],
     "ask": []
